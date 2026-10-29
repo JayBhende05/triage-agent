@@ -31,11 +31,62 @@ An LLM that can issue refunds or send replies is dangerous if it acts on its own
 
 ## How it works
 
+The agent is a LangGraph state graph. The thread id is the ticket id, and state is checkpointed in Postgres.
+
+```mermaid
+flowchart TD
+    START([start]) --> triage
+    triage -->|invalid output| risk_gate
+    triage -->|spam| propose
+    triage -->|other categories| gather_context
+    gather_context --> propose
+    propose --> risk_gate
+    risk_gate -->|escalate| finalize
+    risk_gate -->|needs approval| await_approval
+    risk_gate -->|safe to run| execute
+    await_approval -->|approve or edit| execute
+    await_approval -->|reject| finalize
+    execute --> finalize
+    finalize --> END([end])
 ```
-triage -> gather_context -> propose -> risk_gate -+-> escalate
-                                                  +-> await_approval (human) -> execute
-                                                  +-> execute (safe actions)
-```
+
+| Node | What it does |
+| --- | --- |
+| `triage` | The model classifies the ticket and reports a confidence. |
+| `gather_context` | The model calls read-only tools (customer and order lookup), up to 8 calls. |
+| `propose` | The model proposes one action. Spam is built in code, with no model call. |
+| `risk_gate` | The pure risk policy decides: escalate, ask a human, or run. |
+| `await_approval` | Pauses with `interrupt()` until a person approves, edits or rejects. |
+| `execute` | Runs the write tools (`create_refund`, `draft_reply`). |
+| `finalize` | Sets the final ticket status: `resolved`, `escalated` or `rejected`. |
+
+## Risk rules
+
+The policy in `backend/src/agent/policy.ts` is a pure function. Rules run in order, and the first escalation wins.
+
+**Escalate** (no action is taken, a person handles the ticket):
+
+| Reason | Trigger |
+| --- | --- |
+| `invalid_output` | Triage or proposal failed validation twice, or is missing |
+| `loop_guard` | The model hit the limit of 8 tool calls |
+| `low_confidence` | Triage confidence is below 0.7 |
+| `model_escalated` | The model itself proposed escalating |
+| `unverified_order` | The proposal names an order that was never looked up |
+| `owner_mismatch` | A looked-up order belongs to a different email than the sender |
+| `bad_refund` | Refund amount is missing, zero or negative |
+| `over_total` | Refund amount is above the order total |
+
+**Needs human approval:**
+
+| Reason | Trigger |
+| --- | --- |
+| `refund` | Any refund and reply |
+| `spam_close` | Closing a ticket as spam |
+| `complaint_reply` | A reply to a complaint |
+| `damaged_item_reply` | A reply about a damaged item |
+
+**Runs automatically:** a plain reply to any other category, such as an order status question.
 
 ## Highlights
 
