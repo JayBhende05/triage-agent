@@ -61,6 +61,7 @@ const render = (msgs: BaseMessage[]) =>
   msgs.map((m) => ({ role: m.type, content: typeof m.content === "string" ? m.content : JSON.stringify(m.content) }));
 
 export function buildGraph(model: Model, checkpointer: PostgresSaver) {
+  
   /** One audited structured call. A bad reply gets one retry with the error; then null. */
   async function structured<T>(ticketId: number, name: string, schema: z.ZodType<T>, messages: BaseMessage[]) {
     let msgs = messages;
@@ -239,6 +240,7 @@ export function buildGraph(model: Model, checkpointer: PostgresSaver) {
     .addNode("await_approval", awaitApproval)
     .addNode("execute", execute)
     .addNode("finalize", finalize)
+
     .addEdge(START, "triage")
     .addConditionalEdges("triage", (s: S) =>
       s.flags.triage_invalid ? "risk_gate" : s.triage_result!.category === "spam" ? "propose" : "gather_context",

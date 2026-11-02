@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "migrate": "bun run src/db/migrate.ts",
+    "eval:triage": "bun run evals/runner.ts",
     "seed": "bun run src/db/seed.ts",
     "start": "bun run src/main.ts",
     "test": "bun test",

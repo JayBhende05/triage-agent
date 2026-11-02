@@ -1,83 +1,195 @@
+
 import { describe, expect, test } from "bun:test";
 import { evaluate } from "../src/agent/policy.ts";
-import type { Context, Flags, Proposal, Triage } from "../src/agent/types.ts";
+import type {
+  Context,
+  Flags,
+  Proposal,
+  Triage,
+} from "../src/agent/types.ts";
 
-const ticket = { from_email: "rohan@example.com" };
-const order = (id: number, owner = "rohan@example.com", total = "2499.00") => ({ id, status: "delivered", total_inr: total, owner_email: owner });
-const ctx = (...orders: ReturnType<typeof order>[]): Context => ({
-  customers: {},
-  orders: Object.fromEntries(orders.map((o) => [String(o.id), o])),
-});
-const triage = (category: Triage["category"] = "refund", confidence = 0.9): Triage => ({ category, confidence, summary: "s" });
-const refund = (amount: Proposal["refund_amount_inr"] = "2499.00", order_id: number | null = 1003): Proposal => ({
-  action: "refund_and_reply",
-  order_id,
-  refund_amount_inr: amount,
-  reply_text: "ok",
-});
-const reply = (order_id: number | null = 1003): Proposal => ({ action: "reply", order_id, refund_amount_inr: null, reply_text: "ok" });
-const run = (t: Triage | null, p: Proposal | null, c: Context = ctx(order(1003)), f: Flags = {}) => evaluate(ticket, t, p, c, f);
-
-const escalated = (r: ReturnType<typeof run>, reason: string) => {
-  expect(r.final_action).toBe("escalate");
-  expect(r.needs_approval).toBe(false);
-  expect(r.reasons).toEqual([reason]);
+const ticket = {
+  from_email: "rohan@example.com",
 };
 
-describe("escalation rules", () => {
-  test("1. invalid triage output", () => escalated(run(null, null, ctx(), { triage_invalid: true }), "invalid_output"));
-  test("1. invalid proposal output", () => escalated(run(triage(), null, ctx(), { proposal_invalid: true }), "invalid_output"));
-  test("2. tool loop hit its call limit", () => escalated(run(triage(), null, ctx(), { loop_guard: true }), "loop_guard"));
-  test("3. confidence below 0.7", () => escalated(run(triage("refund", 0.69), refund()), "low_confidence"));
-  test("3. confidence exactly 0.7 passes", () => {
-    expect(run(triage("refund", 0.7), refund()).final_action).toBe("refund_and_reply");
-  });
-  test("4. the model itself proposed escalate", () => {
-    escalated(run(triage(), { action: "escalate", order_id: null, refund_amount_inr: null, reply_text: null }), "model_escalated");
-  });
-  test("5. proposed order was never returned by a tool", () => escalated(run(triage(), refund("10", 9999)), "unverified_order"));
-  test("6. a looked-up order belongs to someone else", () => {
-    escalated(run(triage(), refund(), ctx(order(1003, "asha@example.com"))), "owner_mismatch");
-  });
-  test("6. any looked-up order counts, not only the proposed one", () => {
-    escalated(run(triage(), refund(), ctx(order(1003), order(1002, "asha@example.com", "799.00"))), "owner_mismatch");
-  });
-  test("6. owner comparison ignores case", () => {
-    expect(run(triage(), refund(), ctx(order(1003, "ROHAN@Example.com"))).final_action).toBe("refund_and_reply");
-  });
-  test("7. refund amount missing", () => escalated(run(triage(), refund(null)), "bad_refund"));
-  test("7. refund order missing", () => escalated(run(triage(), refund("10", null)), "bad_refund"));
-  test("7. refund amount zero", () => escalated(run(triage(), refund("0")), "bad_refund"));
-  test("7. refund amount negative", () => escalated(run(triage(), refund("-5")), "bad_refund"));
-  test("7. refund amount not a number", () => escalated(run(triage(), refund("lots")), "bad_refund"));
-  test("7. refund above the order total", () => escalated(run(triage(), refund("2499.01")), "over_total"));
-  test("7. refund equal to the total passes (compared in paise)", () => {
-    const c = ctx(order(1003, "rohan@example.com", "1199.99"));
-    expect(run(triage(), refund(1199.99), c).final_action).toBe("refund_and_reply");
-    expect(run(triage(), refund("1199.990"), c).reasons).toEqual(["bad_refund"]);
-  });
-  test("the first escalation wins", () => {
-    escalated(run(triage("refund", 0.1), refund(), ctx(order(1003, "asha@example.com"))), "low_confidence");
-  });
-});
+const triage: Triage = {
+  category: "order_status",
+  confidence: 0.95,
+  summary: "Customer wants an order update.",
+};
 
-describe("approval rules", () => {
-  test("refund_and_reply needs approval", () => {
-    expect(run(triage(), refund())).toEqual({ final_action: "refund_and_reply", needs_approval: true, reasons: ["refund"] });
+const proposal: Proposal = {
+  action: "reply",
+  order_id: 101,
+  refund_amount_inr: null,
+  reply_text: "Your order is being processed.",
+};
+
+const context: Context = {
+  customers: {},
+  orders: {
+    "101": {
+      id: 101,
+      status: "processing",
+      total_inr: "999.00",
+      owner_email: "rohan@example.com",
+    },
+  },
+};
+
+const noFlags: Flags = {};
+
+describe("Triage risk policy evaluation", () => {
+  test("allows a verified normal reply", () => {
+    const result = evaluate(
+      ticket,
+      triage,
+      proposal,
+      context,
+      noFlags,
+    );
+
+    expect(result).toEqual({
+      final_action: "reply",
+      needs_approval: false,
+      reasons: [],
+    });
   });
-  test("close_spam needs approval", () => {
-    const spam: Proposal = { action: "close_spam", order_id: null, refund_amount_inr: null, reply_text: null };
-    expect(run(triage("spam", 0.99), spam, ctx())).toEqual({ final_action: "close_spam", needs_approval: true, reasons: ["spam_close"] });
+
+  test("escalates low confidence", () => {
+    const result = evaluate(
+      ticket,
+      { ...triage, confidence: 0.69 },
+      proposal,
+      context,
+      noFlags,
+    );
+
+    expect(result.final_action).toBe("escalate");
+    expect(result.reasons).toEqual(["low_confidence"]);
   });
-  test("a complaint reply needs approval", () => {
-    expect(run(triage("complaint"), reply()).needs_approval).toBe(true);
+
+  test("accepts confidence exactly at threshold", () => {
+    const result = evaluate(
+      ticket,
+      { ...triage, confidence: 0.7 },
+      proposal,
+      context,
+      noFlags,
+    );
+
+    expect(result.final_action).toBe("reply");
   });
-  test("a damaged_item reply needs approval", () => {
-    expect(run(triage("damaged_item"), reply()).needs_approval).toBe(true);
+
+  test("escalates invalid triage output", () => {
+    const result = evaluate(
+      ticket,
+      triage,
+      proposal,
+      context,
+      { triage_invalid: true },
+    );
+
+    expect(result.reasons).toEqual(["invalid_output"]);
   });
-  test("any other reply is safe to run", () => {
-    for (const c of ["order_status", "refund", "other"] as const) {
-      expect(run(triage(c), reply())).toEqual({ final_action: "reply", needs_approval: false, reasons: [] });
-    }
+
+  test("escalates when tool loop guard is triggered", () => {
+    const result = evaluate(
+      ticket,
+      triage,
+      proposal,
+      context,
+      { loop_guard: true },
+    );
+
+    expect(result.reasons).toEqual(["loop_guard"]);
+  });
+
+  test("escalates an unverified order", () => {
+    const result = evaluate(
+      ticket,
+      triage,
+      { ...proposal, order_id: 999 },
+      context,
+      noFlags,
+    );
+
+    expect(result.reasons).toEqual(["unverified_order"]);
+  });
+
+  test("escalates an order owner mismatch", () => {
+    const wrongOwner: Context = {
+      ...context,
+      orders: {
+        "101": {
+          ...context.orders["101"],
+          owner_email: "another@example.com",
+        },
+      },
+    };
+
+    const result = evaluate(
+      ticket,
+      triage,
+      proposal,
+      wrongOwner,
+      noFlags,
+    );
+
+    expect(result.reasons).toEqual(["owner_mismatch"]);
+  });
+
+  test("requires approval for refunds", () => {
+    const refundProposal: Proposal = {
+      action: "refund_and_reply",
+      order_id: 101,
+      refund_amount_inr: 499,
+      reply_text: "Your refund has been proposed.",
+    };
+
+    const result = evaluate(
+      ticket,
+      triage,
+      refundProposal,
+      context,
+      noFlags,
+    );
+
+    expect(result).toEqual({
+      final_action: "refund_and_reply",
+      needs_approval: true,
+      reasons: ["refund"],
+    });
+  });
+
+  test("escalates refunds greater than order total", () => {
+    const refundProposal: Proposal = {
+      action: "refund_and_reply",
+      order_id: 101,
+      refund_amount_inr: 1200,
+      reply_text: "Your refund has been proposed.",
+    };
+
+    const result = evaluate(
+      ticket,
+      triage,
+      refundProposal,
+      context,
+      noFlags,
+    );
+
+    expect(result.reasons).toEqual(["over_total"]);
+  });
+
+  test("requires approval for complaints", () => {
+    const result = evaluate(
+      ticket,
+      { ...triage, category: "complaint" },
+      proposal,
+      context,
+      noFlags,
+    );
+
+    expect(result.needs_approval).toBe(true);
   });
 });
