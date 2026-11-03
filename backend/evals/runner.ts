@@ -328,7 +328,7 @@ for (const result of results) {
 console.log("==============================================");
 // Save evaluation report
 const report = {
-  version: "triage-v1",
+  version: "triage-v2",
   createdAt: new Date().toISOString(),
 
   metrics: {

@@ -1,6 +1,6 @@
 {
-  "version": "triage-v1",
-  "createdAt": "2026-11-03T01:33:08.552Z",
+  "version": "triage-v2",
+  "createdAt": "2026-11-03T01:44:45.478Z",
   "metrics": {
     "totalCases": 5,
     "completed": 5,
@@ -10,10 +10,10 @@
     "accuracy": 100,
     "coverage": 100,
     "judge": {
-      "successfullyJudged": 5,
-      "accuracy": 4.4,
-      "faithfulness": 4.4,
-      "completeness": 4.4
+      "successfullyJudged": 4,
+      "accuracy": 5,
+      "faithfulness": 5,
+      "completeness": 4.75
     }
   },
   "results": [
@@ -21,7 +21,7 @@
       "id": "eval_001",
       "expected": "order_status",
       "actual": "order_status",
-      "summary": "Customer is asking for the current status of order 1001.",
+      "summary": "Customer wants to know the current status of order 1001.",
       "confidence": 0.95,
       "status": "PASS",
       "accuracy": 5,
@@ -29,9 +29,9 @@
       "completeness": 5,
       "judgeStatus": "OK",
       "judgeFeedback": {
-        "accuracy": "The summary accurately reflects the customer's request for the current status of order 1001, matching the intent of the original message.",
-        "faithfulness": "The summary contains only information directly supported by the customer's message and does not introduce any new facts or assumptions.",
-        "completeness": "All key details—order number and request for status—are captured, and no essential information is omitted."
+        "accuracy": "The summary accurately reflects the customer's request to know the current status of order 1001.",
+        "faithfulness": "The summary contains only information directly supported by the customer's message; no additional assumptions or details were added.",
+        "completeness": "All key elements of the customer's intent—order number and request for status—are captured; no essential information is omitted."
       }
     },
     {
@@ -39,7 +39,7 @@
       "expected": "refund",
       "actual": "refund",
       "summary": "Customer received the wrong item and requests a full refund of 2499.00.",
-      "confidence": 0.95,
+      "confidence": 0.99,
       "status": "PASS",
       "accuracy": 5,
       "faithfulness": 5,
@@ -47,32 +47,32 @@
       "judgeStatus": "OK",
       "judgeFeedback": {
         "accuracy": "The summary accurately reflects that the customer received the wrong item and is requesting a full refund of 2499.00.",
-        "faithfulness": "All information in the summary is directly supported by the customer’s message; no additional facts or assumptions were introduced.",
-        "completeness": "The summary captures the main intent and refund amount but omits the order number (1003), which is a relevant detail for processing the request."
+        "faithfulness": "All information in the summary is directly supported by the customer’s message; no additional details or assumptions were introduced.",
+        "completeness": "The summary captures the main request but omits the order number (1003), which is a relevant detail for processing the refund. The omission does not change the core intent but slightly reduces completeness."
       }
     },
     {
       "id": "eval_003",
       "expected": "spam",
       "actual": "spam",
-      "summary": "Customer reports receiving a spam email claiming a prize.",
+      "summary": "The email is a spam message offering a prize.",
       "confidence": 0.99,
       "status": "PASS",
-      "accuracy": 2,
-      "faithfulness": 2,
-      "completeness": 3,
+      "accuracy": 5,
+      "faithfulness": 5,
+      "completeness": 5,
       "judgeStatus": "OK",
       "judgeFeedback": {
-        "accuracy": "The summary incorrectly states that the customer reports receiving a spam email, whereas the customer message is the spam email itself.",
-        "faithfulness": "While it correctly identifies the email as spam and mentions a prize claim, it adds the unsupported claim that the customer reports receiving the email.",
-        "completeness": "It captures the main idea of a spam email offering a prize but omits the link and limited‑time offer details, and misrepresents the customer’s intent."
+        "accuracy": "The summary correctly identifies the email as spam offering a prize, matching the customer's message.",
+        "faithfulness": "The summary contains only information present in the original message and does not add any unsupported details.",
+        "completeness": "It captures the key intent and content of the message; minor details like the URL or time limit are not essential for the summary’s purpose."
       }
     },
     {
       "id": "eval_004",
       "expected": "complaint",
       "actual": "complaint",
-      "summary": "Customer complains about repeated late delivery of order 1005 and lack of response, expressing dissatisfaction.",
+      "summary": "Customer is unhappy with repeated late delivery of order 1005 and lack of response to emails.",
       "confidence": 0.9,
       "status": "PASS",
       "accuracy": 5,
@@ -80,27 +80,19 @@
       "completeness": 5,
       "judgeStatus": "OK",
       "judgeFeedback": {
-        "accuracy": "The summary accurately reflects the customer's complaint about repeated late delivery of order 1005 and lack of response.",
-        "faithfulness": "All information in the summary is directly supported by the customer's message; no invented details or assumptions are present.",
-        "completeness": "The summary captures all key details: order number, repeated lateness, lack of response, and the customer's dissatisfaction."
+        "accuracy": "The summary accurately reflects the customer's complaint about repeated late delivery of order 1005 and lack of email responses.",
+        "faithfulness": "All details in the summary are directly supported by the customer's message; no additional assumptions or invented facts are present.",
+        "completeness": "The summary captures the key points: repeated lateness, order number, lack of response, and the customer's unhappiness."
       }
     },
     {
       "id": "eval_005",
       "expected": "order_status",
       "actual": "order_status",
-      "summary": "Customer wants to know if order 1002 has been delivered.",
+      "summary": "Customer wants to know if order 1002 was delivered.",
       "confidence": 0.95,
       "status": "PASS",
-      "accuracy": 5,
-      "faithfulness": 5,
-      "completeness": 5,
-      "judgeStatus": "OK",
-      "judgeFeedback": {
-        "accuracy": "The summary accurately reflects the customer's request to check the delivery status of order 1002.",
-        "faithfulness": "All information in the summary is directly supported by the customer's message; no additional assumptions or details were added.",
-        "completeness": "The summary includes the key details: order number 1002 and the inquiry about delivery status, covering the customer's intent fully."
-      }
+      "judgeStatus": "ERROR"
     }
   ]
 }

@@ -6,7 +6,14 @@ const DATA_RULE =
 
 export const TRIAGE_SYSTEM = `You triage support tickets for an online store. ${DATA_RULE}
 Classify the ticket into one category: order_status, refund, complaint, damaged_item, spam or other.
-Give your confidence from 0 to 1 and a short summary of what the customer wants.`;
+Give your confidence from 0 to 1 and a short summary of what the customer wants.
+When summarizing an incoming email, distinguish between:
+- The email itself containing a request, offer, promotion, or suspicious content.
+- The customer reporting an issue with an email.
+
+Do not describe the customer as reporting or receiving something unless the
+message actually expresses that. Preserve the original sender's intent and
+the meaning of the message.`;
 
 export const GATHER_SYSTEM = `You gather facts for a support ticket. ${DATA_RULE}
 Use lookup_customer for the sender's email and lookup_order for each order number the customer mentions.
