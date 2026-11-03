@@ -60,6 +60,15 @@ Rules:
 - Do not assume facts that are not in the input.
 - Be objective and explain each score briefly.
 - Return scores according to the provided structured schema.
+- Evaluate semantic meaning, not exact wording.
+- Accept reasonable paraphrases and equivalent expressions.
+- Do not penalize a summary merely because it uses
+  different words from the customer message.
+- Penalize faithfulness only when the summary introduces
+  unsupported facts, assumptions, or materially changes
+  the customer's meaning.
+- Distinguish between omitted minor details and omitted
+  information that materially affects the customer's intent.
 `;
 
 
@@ -73,7 +82,7 @@ export function judgeTriageSummary(
   },
   prediction: {
     category: string,
-    summart: string
+    summary: string
   }
 ): Promise<TriageJudgeResult> {
 

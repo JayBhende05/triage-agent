@@ -1,5 +1,4 @@
 
-import { readFile } from "node:fs/promises";
 import { z } from "zod";
 
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
@@ -11,6 +10,12 @@ import { config } from "../src/config.ts";
 
 import { scoreTriage } from "./scorers/triage.scorer.ts";
 import { judgeTriageSummary } from "./judges/triage.judges.ts";
+
+import {
+  readFile,
+  writeFile,
+  mkdir,
+} from "node:fs/promises";
 
 // 1. Evaluation dataset schema
 const EvalCaseSchema = z.object({
@@ -49,6 +54,12 @@ type EvalResult = {
   completeness?: number;
 
   judgeStatus: "OK" | "ERROR" | "NOT_RUN";
+
+  judgeFeedback?: {
+  accuracy: string;
+  faithfulness: string;
+  completeness: string;
+};
 };
 
 // 3. Load and validate dataset
@@ -150,6 +161,11 @@ async function runEvaluation() {
         completeness: judgeResult.completeness.score,
 
         judgeStatus: "OK",
+        judgeFeedback: {
+  accuracy: judgeResult.accuracy.reason,
+  faithfulness: judgeResult.faithfulness.reason,
+  completeness: judgeResult.completeness.reason,
+},
       });
 
       console.log(
@@ -279,6 +295,37 @@ async function runEvaluation() {
   );
 
   console.log("=======================================\n");
+
+  console.log("\n========== JUDGE VALIDATION DETAILS ==========");
+
+for (const result of results) {
+  if (!result.judgeFeedback) continue;
+
+  console.log(`\n${result.id}`);
+
+  console.log(
+    `Accuracy: ${result.accuracy}/5`
+  );
+  console.log(
+    `Reason: ${result.judgeFeedback.accuracy}`
+  );
+
+  console.log(
+    `Faithfulness: ${result.faithfulness}/5`
+  );
+  console.log(
+    `Reason: ${result.judgeFeedback.faithfulness}`
+  );
+
+  console.log(
+    `Completeness: ${result.completeness}/5`
+  );
+  console.log(
+    `Reason: ${result.judgeFeedback.completeness}`
+  );
+}
+
+console.log("==============================================");
 }
 
 // 11. Execute evaluation
