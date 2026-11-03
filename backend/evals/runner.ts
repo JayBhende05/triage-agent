@@ -326,6 +326,44 @@ for (const result of results) {
 }
 
 console.log("==============================================");
+// Save evaluation report
+const report = {
+  version: "triage-v1",
+  createdAt: new Date().toISOString(),
+
+  metrics: {
+    totalCases: results.length,
+    completed,
+    passed,
+    failed,
+    errors,
+    accuracy,
+    coverage,
+
+    judge: {
+      successfullyJudged: judgedResults.length,
+      accuracy: average("accuracy"),
+      faithfulness: average("faithfulness"),
+      completeness: average("completeness"),
+    },
+  },
+
+  results,
+};
+
+const reportsDirectory = new URL("./reports/", import.meta.url);
+
+await mkdir(reportsDirectory, { recursive: true });
+
+await writeFile(
+  new URL("./reports/latest.json", import.meta.url),
+  JSON.stringify(report, null, 2),
+  "utf-8"
+);
+
+console.log("Evaluation report saved to evals/reports/latest.json");
+
+
 }
 
 // 11. Execute evaluation
